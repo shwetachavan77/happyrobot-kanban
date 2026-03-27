@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const INITIAL_COLUMNS = {
   done: {
@@ -87,7 +87,26 @@ const INITIAL_COLUMNS = {
   },
 };
 
-let nextId = 100;
+const STORAGE_KEY = "happyrobot-kanban-state";
+const ID_KEY = "happyrobot-kanban-nextid";
+
+function loadSavedState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return null;
+}
+
+function loadNextId() {
+  try {
+    const saved = localStorage.getItem(ID_KEY);
+    if (saved) return parseInt(saved, 10);
+  } catch (e) {}
+  return 100;
+}
+
+let nextId = loadNextId();
 
 function AddCardForm({ onAdd, onCancel, color }) {
   const [title, setTitle] = useState("");
@@ -323,12 +342,30 @@ function Column({ id, column, onDragStart, onDrop, onDragOver, expandedCards, to
 }
 
 export default function KanbanBoard() {
-  const [columns, setColumns] = useState(INITIAL_COLUMNS);
+  const [columns, setColumns] = useState(() => loadSavedState() || INITIAL_COLUMNS);
   const [expandedCards, setExpandedCards] = useState(new Set());
   const [collapsedCols, setCollapsedCols] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const dragItem = useRef(null);
   const dragSource = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
+      localStorage.setItem(ID_KEY, String(nextId));
+    } catch (e) {}
+  }, [columns]);
+
+  const resetBoard = useCallback(() => {
+    if (window.confirm("Reset board to original state? This will undo all changes.")) {
+      setColumns(INITIAL_COLUMNS);
+      nextId = 100;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(ID_KEY);
+      } catch (e) {}
+    }
+  }, []);
 
   const handleDragStart = useCallback((e, itemId) => {
     dragItem.current = itemId;
@@ -526,6 +563,7 @@ export default function KanbanBoard() {
           )}
           <button onClick={expandAll} style={btnStyle}>Expand All</button>
           <button onClick={collapseAll} style={btnStyle}>Collapse All</button>
+          <button onClick={resetBoard} style={{ ...btnStyle, color: "#ef4444", borderColor: "#ef444444" }}>Reset Board</button>
         </div>
       </div>
 
